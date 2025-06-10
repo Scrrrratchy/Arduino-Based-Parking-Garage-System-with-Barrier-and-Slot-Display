@@ -1,169 +1,169 @@
-#include <Servo.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
- 
+#include <Servo.h>                  // Bibliothek zur Ansteuerung von Servomotoren
+#include <Wire.h>                   // I2C-Bibliothek für Kommunikation mit dem OLED
+#include <Adafruit_GFX.h>          // Grafikbibliothek für grundlegende Displayfunktionen
+#include <Adafruit_SSD1306.h>      // Bibliothek für das SSD1306 OLED Display
+
 // OLED Display Einstellungen
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
- 
+#define SCREEN_WIDTH 128           // Breite des Displays in Pixel
+#define SCREEN_HEIGHT 64           // Höhe des Displays in Pixel
+#define OLED_RESET -1              // Kein Reset-Pin verwendet
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);  // OLED-Display Objekt
+
 // Pin-Zuordnungen
-const int trigPin   = 12;
-const int echoPin   = 13;
-const int servoPin  = 9;
- 
+const int trigPin   = 12;          // Trigger-Pin des Ultraschallsensors
+const int echoPin   = 13;          // Echo-Pin des Ultraschallsensors
+const int servoPin  = 9;           // PWM-Pin für den Servo (Schranke)
+
 // Schranken-Parameter
-const int closedAngle = 0;
-const int openAngle   = 90;
-const long thresholdDistance = 10; // Abstand unter dem ein Auto erkannt wird
-const long leaveThreshold = 10;   // Abstand über dem ein Auto als "weg" gilt
- 
+const int closedAngle = 0;         // Winkel für geschlossene Schranke
+const int openAngle   = 90;        // Winkel für geöffnete Schranke
+const long thresholdDistance = 10; // Abstand in cm: Auto erkannt, wenn unter diesem Wert
+const long leaveThreshold = 10;    // Abstand in cm: Auto ist weg, wenn über diesem Wert
+
 // Parkhaus-Parameter
-const int totalSlots = 3;
-int availableSlots = totalSlots;
-bool carDetected = false;
-bool barrierOpen = false;
- 
-Servo barrierServo;
- 
-// Setup
+const int totalSlots = 3;          // Gesamtanzahl an Parkplätzen
+int availableSlots = totalSlots;   // Aktuell freie Plätze
+bool carDetected = false;          // Status: Auto erkannt?
+bool barrierOpen = false;          // Status: Schranke offen?
+
+Servo barrierServo;                // Servo-Objekt für die Schrankensteuerung
+
 void setup() {
-  Serial.begin(9600);
-  barrierServo.attach(servoPin);
-  barrierServo.write(closedAngle);
- 
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
- 
-  // OLED Initialisierung
+  Serial.begin(9600);                      // Serielle Ausgabe für Debugging
+  barrierServo.attach(servoPin);          // Servo an definierten Pin anschließen
+  barrierServo.write(closedAngle);        // Schranke zu Beginn schließen
+
+  pinMode(trigPin, OUTPUT);               // Trigger als Ausgang
+  pinMode(echoPin, INPUT);                // Echo als Eingang
+
+  // OLED Display initialisieren
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("OLED-Fehler!");
-    while (true);
+    while (true);                         // Endlosschleife bei Fehler
   }
-  display.clearDisplay();
-  updateDisplay();
+
+  display.clearDisplay();                 // OLED leeren
+  updateDisplay();                        // Erste Anzeige zeigen
 }
- 
-// Abstand messen
+
+// Misst den Abstand mithilfe des Ultraschallsensors
 float getDistance() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(trigPin, HIGH);           // Ultraschall senden
   delayMicroseconds(5000);
   digitalWrite(trigPin, LOW);
- 
-  long duration = pulseIn(echoPin, HIGH, 300000);
-  float distance = duration * 0.034 / 2;
+
+  long duration = pulseIn(echoPin, HIGH, 300000);  // Zeit messen (Timeout nach 300ms)
+  float distance = duration * 0.034 / 2;           // Umrechnen in cm
   return distance;
 }
- 
-// Anzeige aktualisieren
+
+// Aktualisiert das OLED Display je nach verfügbarem Platz
 void updateDisplay() {
-  display.clearDisplay();
+  display.clearDisplay();                // Anzeige leeren
   display.setTextSize(2);
   display.setTextColor(WHITE);
- 
+
   if (availableSlots > 0) {
     display.setCursor(0, 5);
     display.print("Freie\n");
     display.print("Plaetze\n");
     display.setCursor(50, 40);
     display.setTextSize(3);
-    display.print(availableSlots);
+    display.print(availableSlots);       // Zeige freie Plätze
   } else {
     display.setCursor(0, 5);
     display.print("Parkhaus\n\n");
     display.setTextSize(3);
-    display.print("Voll\n");
+    display.print("Voll\n");             // Parkhaus voll
   }
- 
-  display.display();
+
+  display.display();                     // Anzeige ausgeben
 }
- 
-// Autoerkennung mit 2 Messungen unterhalb Schwellenwert
+
+// Erkennt ein Auto, wenn 2 Messungen unterhalb des Schwellwerts sind
 void checkForCar(double threshold) {
-  float firstDistance = getDistance();
+  float firstDistance = getDistance();   // Erste Messung
   Serial.print("Messung 1: ");
   Serial.print(firstDistance);
   Serial.println(" cm");
- 
-  delay(500); // 2.5 Sekunden warten
- 
-  float secondDistance = getDistance();
+
+  delay(500);                            // 0,5s warten
+
+  float secondDistance = getDistance();  // Zweite Messung
   Serial.print("Messung 2: ");
   Serial.print(secondDistance);
   Serial.println(" cm");
- 
+
   if (firstDistance < threshold && secondDistance < threshold) {
-    carDetected = true;
+    carDetected = true;                  // Auto erkannt
     Serial.println("Auto sicher erkannt. carDetected = true");
   } else {
     Serial.println("Auto nicht stabil erkannt.");
   }
 }
- 
-// Prüfen ob Auto wirklich weg ist (2x > leaveThreshold)
+
+// Bestätigt, dass das Auto weg ist (2 Messungen über Schwellwert)
 void confirmCarGone(double threshold) {
-  float firstDistance = getDistance();
+  float firstDistance = getDistance();   // Erste Messung
   Serial.print("Weg-Messung 1: ");
   Serial.print(firstDistance);
   Serial.println(" cm");
- 
-  delay(500); // 2.5 Sekunden warten
- 
-  float secondDistance = getDistance();
+
+  delay(500);                            // 0,5s warten
+
+  float secondDistance = getDistance();  // Zweite Messung
   Serial.print("Weg-Messung 2: ");
   Serial.print(secondDistance);
   Serial.println(" cm");
- 
+
   if (firstDistance > threshold && secondDistance > threshold) {
     carDetected = false;
     barrierOpen = false;
- 
+
     if (availableSlots > 0) {
-      availableSlots--;
+      availableSlots--;                 // Ein Platz wird als belegt markiert
       Serial.print("Verfügbare Plätze: ");
       Serial.println(availableSlots);
-      updateDisplay();
+      updateDisplay();                  // Anzeige aktualisieren
     } else {
       Serial.println("Parkhaus voll!");
     }
- 
+
     Serial.println("Schranke schließt.");
-    barrierServo.write(closedAngle);
+    barrierServo.write(closedAngle);    // Schranke schließen
     delay(500);
   } else {
     Serial.println("Auto noch in der Nähe – Schranke bleibt offen.");
   }
 }
- 
-// Hauptloop
+
+// Hauptprogramm
 void loop() {
-  float distance = getDistance();
- 
+  float distance = getDistance();       // Live-Abstand messen
   Serial.print("Live-Abstand: ");
   Serial.print(distance);
   Serial.println(" cm");
- 
-  // Auto erkennen wenn Schranke zu ist
+
+  // Auto erkennen, wenn Schranke zu und Plätze verfügbar
   if (!carDetected && !barrierOpen && availableSlots > 0) {
     checkForCar(thresholdDistance);
   }
- 
-  // Schranke öffnen wenn Auto erkannt
+
+  // Schranke öffnen, wenn Auto erkannt
   if (carDetected && !barrierOpen) {
     barrierOpen = true;
-    barrierServo.write(openAngle);
+    barrierServo.write(openAngle);      // Schranke öffnen
     Serial.println("Schranke öffnet.");
     delay(100);
   }
- 
-  // Auto soll weg sein → 2 Messungen bestätigen das
+
+  // Prüfen ob Auto weg ist
   if (carDetected && barrierOpen) {
     confirmCarGone(leaveThreshold);
   }
- 
-  delay(100);
+
+  delay(100);                           // Kurze Pause, um zu entprellen
 }
