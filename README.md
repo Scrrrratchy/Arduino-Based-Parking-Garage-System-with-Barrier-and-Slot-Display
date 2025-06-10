@@ -44,8 +44,6 @@ Dieses Projekt zeigt den Aufbau eines **miniaturisierten, intelligenten Parkhaus
 
 Der Code ist in C++ geschrieben und wurde in der **Arduino IDE** entwickelt. Er ist modular aufgebaut und lässt sich leicht erweitern oder anpassen.
 
-Siehe [`/code/`](./code/) Verzeichnis für den vollständigen Sketch.
-
 ## 📷 Bilder
 
 📸 Im Verzeichnis `/images` befinden sich Fotos vom Aufbau und der Schaltung.
