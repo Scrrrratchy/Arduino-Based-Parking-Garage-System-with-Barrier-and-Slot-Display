@@ -12,7 +12,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // Pin-Zuordnungen Eingang
 const int trigPin = 12;
 const int echoPin = 13;
-const int servoPin = 9;
+const int servoPin = 10;
  
 // Pin-Zuordnungen Ausgang
 const int trigPin2 = 7;
